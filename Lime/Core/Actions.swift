@@ -73,8 +73,8 @@ enum ActionCatalog {
         let list: [LimeAction]
         switch (kind, mode) {
         case (.image, .convert):
-            let raster = ImageConverter.targets.filter { $0.type != .pdf && $0.ext != source }.map(convertImage)
-            let pdf = ImageConverter.targets.filter { $0.type == .pdf }.map(convertImage)
+            let raster = ImageConverter.targets.filter { $0.type != .pdf && $0.ext != source }.map { convertImage($0) }
+            let pdf = ImageConverter.targets.filter { $0.type == .pdf }.map { convertImage($0) }
             list = (many ? [combineImages, collage] : []) + raster + (source == "svg" ? [] : [svg]) + pdf + [imageDocx]
         case (.image, .tools):
             list = many

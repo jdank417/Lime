@@ -114,7 +114,7 @@ struct PDFOrganizer: View {
                             cell(page)
                                 .draggable(page.id.uuidString)
                                 .dropDestination(for: String.self) { items, _ in
-                                    move(items.first, before: page.id)
+                                    return move(items.first, before: page.id)
                                 }
                         }
                     }

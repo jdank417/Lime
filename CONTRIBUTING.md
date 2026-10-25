@@ -1,8 +1,10 @@
 # Contributing to Lime
 
-Thanks for helping out! A few notes to make it smooth.
+Thanks for helping out! A few notes to make it smooth. Everyone taking part is expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Reporting a bug
+
+Security problems are different: report them privately as described in [SECURITY.md](SECURITY.md).
 
 Open an issue with:
 

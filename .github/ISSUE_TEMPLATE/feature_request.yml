@@ -1,0 +1,18 @@
+name: Feature request
+description: A format, tool or setting you'd like Lime to have.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like Lime to do?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: When would you use it?
+      description: The files you work with and what you're trying to get done.
+  - type: markdown
+    attributes:
+      value: Lime only uses what ships with macOS and never uploads files, so features that need extra installs or a server may not fit.

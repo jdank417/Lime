@@ -103,7 +103,8 @@ To build your own DMG, run `scripts/build-dmg.sh`. See [docs/RELEASING.md](docs/
 
 ## Contributing
 
-Bug reports and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Bug reports and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md), and please follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+To report a security problem, see [SECURITY.md](SECURITY.md).
 
 ## License
 

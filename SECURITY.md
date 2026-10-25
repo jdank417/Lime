@@ -15,7 +15,7 @@ Report it privately instead: on the repository's **Security** tab, click **Repor
 - steps or a file that reproduces it,
 - the Lime and macOS versions you used.
 
-You'll get a reply within a week. Once a fix is released, the advisory is published with credit to you, unless you'd rather stay anonymous.
+Everything about the report is handled there on GitHub. Once a fix is released, the advisory is published with credit to you, unless you'd rather stay anonymous.
 
 ## What Lime does, for context
 

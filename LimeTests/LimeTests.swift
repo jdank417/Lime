@@ -63,7 +63,7 @@ struct LimeTests {
             let outputs = try await action.run([png])
             #expect(outputs.count == 1)
             #expect(fileSize(outputs[0]) > 0, "\(action.label) produced nothing")
-            if action.label != "PDF" {
+            if !["PDF", "SVG", "DOCX"].contains(action.label) {
                 #expect(CGImageSourceCreateWithURL(outputs[0] as CFURL, nil).flatMap { CGImageSourceCreateImageAtIndex($0, 0, nil) }?.width == 64,
                         "\(action.label) isn't a readable 64px image")
             }
@@ -78,7 +78,7 @@ struct LimeTests {
         #expect(pixelSize(rotated) == CGSize(width: 32, height: 64))
         #expect(rotated.lastPathComponent == "image (rotated).png")
         #expect(try ImageConverter.edit(png, .compress).pathExtension == "jpg")
-        for action in ActionCatalog.actions(for: [png], mode: .tools) {
+        for action in ActionCatalog.actions(for: [png], mode: .tools) where !action.interactive {
             #expect(try await action.run([png]).allSatisfy { fileSize($0) > 0 }, "\(action.label) failed")
         }
     }
@@ -141,7 +141,7 @@ struct LimeTests {
 
     @Test func audioConversions() async throws {
         let wav = try makeWAV()
-        for action in ActionCatalog.actions(for: [wav], mode: .convert) + ActionCatalog.actions(for: [wav], mode: .tools) {
+        for action in ActionCatalog.actions(for: [wav], mode: .convert) + ActionCatalog.actions(for: [wav], mode: .tools) where !action.interactive {
             let output = try await action.run([wav])[0]
             if action.label == "ZIP" { continue }
             let file = try AVAudioFile(forReading: output)
@@ -151,7 +151,7 @@ struct LimeTests {
 
     @Test func videoConversions() async throws {
         let mov = try await makeMovie()
-        for action in ActionCatalog.actions(for: [mov], mode: .convert) + ActionCatalog.actions(for: [mov], mode: .tools) {
+        for action in ActionCatalog.actions(for: [mov], mode: .convert) + ActionCatalog.actions(for: [mov], mode: .tools) where !action.interactive {
             let output = try await action.run([mov])[0]
             #expect(fileSize(output) > 0, "\(action.label) produced nothing")
         }
@@ -187,7 +187,7 @@ struct LimeTests {
 
     // MARK: Fixtures
 
-    private func makePNG(_ name: String = "image", width: Int = 64, height: Int = 64) throws -> URL {
+    func makePNG(_ name: String = "image", width: Int = 64, height: Int = 64) throws -> URL {
         let ctx = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
                             space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
         ctx.setFillColor(CGColor(red: 0.5, green: 0.8, blue: 0.1, alpha: 1))
@@ -197,14 +197,14 @@ struct LimeTests {
         return url
     }
 
-    private func makeText() throws -> URL {
+    func makeText() throws -> URL {
         let url = dir.appendingPathComponent("notes.txt")
         try (1...120).map { "Lime line \($0)" }.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
         return url
     }
 
     /// One second of a 440 Hz tone.
-    private func makeWAV() throws -> URL {
+    func makeWAV() throws -> URL {
         let url = dir.appendingPathComponent("tone.wav")
         let format = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 2)!
         let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 44_100)!
@@ -223,7 +223,7 @@ struct LimeTests {
     }
 
     /// Two seconds of 320×240 H.264 with an AAC soundtrack.
-    private func makeMovie() async throws -> URL {
+    func makeMovie() async throws -> URL {
         let url = dir.appendingPathComponent("clip.mov")
         let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
         let video = AVAssetWriterInput(mediaType: .video, outputSettings: [
@@ -280,19 +280,19 @@ struct LimeTests {
         return url
     }
 
-    private func waitUntilReady(_ input: AVAssetWriterInput, _ writer: AVAssetWriter) async throws {
+    func waitUntilReady(_ input: AVAssetWriterInput, _ writer: AVAssetWriter) async throws {
         while !input.isReadyForMoreMediaData {
             try #require(writer.status == .writing, "\(writer.error.map(String.init(describing:)) ?? "")")
             try await Task.sleep(for: .milliseconds(5))
         }
     }
 
-    private func fileSize(_ url: URL) -> Int {
+    func fileSize(_ url: URL) -> Int {
         if FileKind.of(url) == .folder { return 1 }
         return (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
     }
 
-    private func pixelSize(_ url: URL) -> CGSize? {
+    func pixelSize(_ url: URL) -> CGSize? {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
               let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
         return CGSize(width: image.width, height: image.height)

@@ -8,11 +8,12 @@ import UniformTypeIdentifiers
 
 /// The broad family a dropped file belongs to. Decides which actions the wheel offers.
 nonisolated enum FileKind: Sendable {
-    case image, video, audio, pdf, document, archive, folder, other
+    case image, video, audio, pdf, document, subtitle, archive, folder, other
 
     static func of(_ url: URL) -> FileKind {
         let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isPackageKey, .contentTypeKey])
         if values?.isDirectory == true && values?.isPackage != true { return .folder }
+        if ["srt", "vtt"].contains(url.pathExtension.lowercased()) { return .subtitle }
         let type = values?.contentType ?? UTType(filenameExtension: url.pathExtension) ?? .data
         return of(type)
     }

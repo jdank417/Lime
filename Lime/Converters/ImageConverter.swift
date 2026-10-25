@@ -24,6 +24,7 @@ nonisolated enum ImageConverter {
             .init(label: "PNG", type: .png, ext: "png"),
             .init(label: "JPG", type: .jpeg, ext: "jpg"),
             .init(label: "HEIC", type: .heic, ext: "heic"),
+            .init(label: "AVIF", type: UTType("public.avif") ?? .heic, ext: "avif"),
             .init(label: "WebP", type: .webP, ext: "webp"),
             .init(label: "TIFF", type: .tiff, ext: "tiff"),
             .init(label: "GIF", type: .gif, ext: "gif"),
@@ -151,7 +152,7 @@ nonisolated enum ImageConverter {
     }
 
     /// Edits keep the original format when we can write it, otherwise fall back to PNG.
-    private static func sameFormat(as url: URL) -> Target {
+    static func sameFormat(as url: URL) -> Target {
         let ext = normalizedExtension(of: url)
         return targets.first { $0.ext == ext && $0.type != .pdf } ?? png
     }

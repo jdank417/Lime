@@ -53,6 +53,22 @@ nonisolated enum LimeError: LocalizedError {
 }
 
 /// Runs blocking conversion work away from the main thread.
-nonisolated func offMain<T: Sendable>(_ work: @escaping @Sendable () throws -> T) async throws -> T {
-    try await Task.detached(priority: .userInitiated, operation: work).value
+/// The box lets framework objects (CIImage, NSImage…) that aren't marked Sendable come back out.
+nonisolated func offMain<T>(_ work: @escaping @Sendable () throws -> T) async throws -> T {
+    try await Task.detached(priority: .userInitiated) { UncheckedBox(value: try work()) }.value.value
+}
+
+nonisolated struct UncheckedBox<T>: @unchecked Sendable {
+    let value: T
+}
+
+/// Lets long jobs move the island's progress bar. Each file of a batch gets its own slice of the bar.
+nonisolated enum JobProgress {
+    @TaskLocal static var span: ClosedRange<Double> = 0...1
+
+    static func report(_ fraction: Double) {
+        let span = span
+        let value = span.lowerBound + (span.upperBound - span.lowerBound) * min(max(fraction, 0), 1)
+        Task { @MainActor in Island.shared.setProgress(value) }
+    }
 }

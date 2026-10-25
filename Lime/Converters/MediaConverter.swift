@@ -48,8 +48,7 @@ nonisolated enum MediaConverter {
             try copy.insertTimeRange(try await track.load(.timeRange), of: track, at: .zero)
             copy.preferredTransform = try await track.load(.preferredTransform)
         }
-        let ext = ["mp4", "m4v"].contains(normalizedExtension(of: url)) ? normalizedExtension(of: url) : "mov"
-        let fileType: AVFileType = ext == "mp4" ? .mp4 : ext == "m4v" ? .m4v : .mov
+        let (fileType, ext) = container(for: url)
         return try await export(composition, source: url, preset: AVAssetExportPresetPassthrough,
                                 fileType: fileType, ext: ext, suffix: "no audio")
     }
@@ -93,14 +92,33 @@ nonisolated enum MediaConverter {
         return out
     }
 
-    private static func export(_ asset: AVAsset, source: URL, preset: String, fileType: AVFileType,
-                               ext: String, suffix: String? = nil) async throws -> URL {
+    /// Exports next to `source` (or into `directory` as `base`), feeding the island's progress bar.
+    static func export(_ asset: AVAsset, source: URL, preset: String, fileType: AVFileType, ext: String,
+                       suffix: String? = nil, directory: URL? = nil, base: String? = nil,
+                       configure: (AVAssetExportSession) -> Void = { _ in }) async throws -> URL {
         guard let session = AVAssetExportSession(asset: asset, presetName: preset) else {
             throw LimeError.failed("This file can't be exported that way")
         }
-        let out = Output.url(for: source, ext: ext, suffix: suffix)
+        configure(session)
+        let out = Output.url(in: directory ?? source.deletingLastPathComponent(), base: base ?? Output.baseName(of: source),
+                             ext: ext, suffix: suffix)
+        let monitor = Task {
+            for await state in session.states(updateInterval: 0.2) {
+                if case .exporting(let progress) = state { JobProgress.report(progress.fractionCompleted) }
+            }
+        }
+        defer { monitor.cancel() }
         try await session.export(to: out, as: fileType)
         return out
+    }
+
+    /// The container to write a video back into: MP4 and M4V stay, everything else becomes MOV.
+    static func container(for url: URL) -> (fileType: AVFileType, ext: String) {
+        switch normalizedExtension(of: url) {
+        case "mp4": (.mp4, "mp4")
+        case "m4v": (.m4v, "m4v")
+        default: (.mov, "mov")
+        }
     }
 
     // MARK: Audio

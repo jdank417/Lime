@@ -14,6 +14,7 @@ struct LimeApp: App {
     var body: some Scene {
         Window("Lime", id: "main") {
             ContentView()
+                .containerBackground(for: .window) { LimeWindowBackground() }
         }
         .windowResizability(.contentSize)
         .windowStyle(.hiddenTitleBar)

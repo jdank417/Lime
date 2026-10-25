@@ -20,7 +20,7 @@ struct ContentView: View {
             header
             HStack(spacing: 12) {
                 HintCard(key: "⇧", title: "Shift + drag", subtitle: "Convert to another format")
-                HintCard(key: "⌥", title: "Option + drag", subtitle: "Resize, rotate, compress…")
+                HintCard(key: "⌥", title: "Option + drag", subtitle: "Edit, crop, trim, compress…")
             }
             dropZone
             if !runner.history.isEmpty { recent }
@@ -35,12 +35,13 @@ struct ContentView: View {
                 }
             Text("Everything is converted on this Mac. New files are saved next to the originals.")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.ink.opacity(0.7))
         }
         .padding(24)
         .padding(.top, 8)
         .frame(width: 540)
-        .tint(Theme.lime)
+        .foregroundStyle(Theme.ink)
+        .tint(Theme.limeDeep)
     }
 
     private var header: some View {
@@ -48,7 +49,7 @@ struct ContentView: View {
             LimeSlice().frame(width: 54, height: 54)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Lime").font(.system(size: 28, weight: .bold, design: .rounded))
-                Text("Squeeze any file into a new format.").foregroundStyle(.secondary)
+                Text("Squeeze any file into a new format.").foregroundStyle(Theme.ink.opacity(0.7))
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 4) {
@@ -57,7 +58,7 @@ struct ContentView: View {
                     .labelsHidden()
                 Text(enabled ? "On" : "Off")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(enabled ? Theme.limeDeep : .secondary)
+                    .foregroundStyle(enabled ? Theme.limeDeep : Theme.ink.opacity(0.7))
             }
         }
     }
@@ -67,21 +68,21 @@ struct ContentView: View {
             if dropped.isEmpty {
                 Image(systemName: "arrow.down.doc")
                     .font(.system(size: 28, weight: .medium))
-                    .foregroundStyle(Theme.lime)
+                    .foregroundStyle(Theme.limeDeep)
                 Text("Or drop files here").font(.headline)
                 Text("Pick what to do with them from a list.")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.ink.opacity(0.7))
             } else {
                 droppedActions
             }
         }
         .frame(maxWidth: .infinity, minHeight: 150)
         .padding(14)
-        .background(Theme.lime.opacity(isTargeted ? 0.18 : 0.06), in: .rect(cornerRadius: 14))
+        .background(.white.opacity(isTargeted ? 0.5 : 0.25), in: .rect(cornerRadius: 14))
         .overlay(
             RoundedRectangle(cornerRadius: 14)
-                .strokeBorder(Theme.lime.opacity(isTargeted ? 0.9 : 0.4), style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
+                .strokeBorder(Theme.limeDeep.opacity(isTargeted ? 0.9 : 0.5), style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
         )
         .dropDestination(for: URL.self) { urls, _ in
             dropped = urls.filter(\.isFileURL)
@@ -109,7 +110,7 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title.uppercased())
                 .font(.caption2.weight(.bold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.ink.opacity(0.7))
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 72), spacing: 6)], spacing: 6) {
                 ForEach(actions) { action in
                     Button {
@@ -132,14 +133,14 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("RECENT")
                 .font(.caption2.weight(.bold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.ink.opacity(0.7))
             ForEach(runner.history.prefix(4)) { item in
                 HStack {
                     Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.lime)
                     Text(item.outputs.count == 1 ? item.outputs[0].lastPathComponent : "\(item.outputs.count) files")
                         .lineLimit(1)
                         .truncationMode(.middle)
-                    Text(item.title).foregroundStyle(.secondary).lineLimit(1)
+                    Text(item.title).foregroundStyle(Theme.ink.opacity(0.7)).lineLimit(1)
                     Spacer()
                     Button("Show") { NSWorkspace.shared.activateFileViewerSelecting(item.outputs) }
                         .buttonStyle(.borderless)
@@ -164,20 +165,20 @@ private struct HintCard: View {
                 .background(Theme.gradient, in: .rect(cornerRadius: 9))
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.system(.callout, design: .rounded, weight: .semibold))
-                Text(subtitle).font(.caption).foregroundStyle(.secondary)
+                Text(subtitle).font(.caption).foregroundStyle(Theme.ink.opacity(0.7))
             }
             Spacer(minLength: 0)
         }
         .padding(12)
         .frame(maxWidth: .infinity)
-        .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: 12))
+        .background(.white.opacity(0.35), in: .rect(cornerRadius: 12))
     }
 }
 
 private struct LimeButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .foregroundStyle(configuration.isPressed ? Theme.ink : .primary)
+            .foregroundStyle(configuration.isPressed ? Theme.ink : Theme.ink)
             .background(configuration.isPressed ? AnyShapeStyle(Theme.gradient) : AnyShapeStyle(Theme.lime.opacity(0.14)),
                         in: .rect(cornerRadius: 9))
     }

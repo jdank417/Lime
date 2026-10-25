@@ -13,24 +13,33 @@ struct HistoryItem: Identifiable {
     let date: Date
 }
 
-/// Runs wheel actions, reports through the HUD, and remembers recent results.
+/// Runs wheel actions, reports through the island, and remembers recent results.
 @MainActor
 final class ActionRunner: ObservableObject {
     static let shared = ActionRunner()
 
     @Published private(set) var history: [HistoryItem] = []
 
-    func run(_ action: LimeAction, on urls: [URL], near point: NSPoint? = nil) {
-        HUD.shared.show(.working(action.title + "…"), near: point)
+    func run(_ action: LimeAction, on urls: [URL]) {
+        // Tools with a window show their own progress until Apply; the island takes over after.
+        if !action.interactive {
+            let detail = urls.count == 1 ? urls[0].lastPathComponent : "\(urls.count) files"
+            Island.shared.working(action.title + "…", detail: detail)
+        }
         Task {
             do {
                 let outputs = try await action.run(urls)
+                guard !outputs.isEmpty else {
+                    if !action.interactive { Island.shared.hide() }
+                    return
+                }
                 history.insert(HistoryItem(title: action.title, outputs: outputs, date: .now), at: 0)
                 history = Array(history.prefix(20))
-                let name = outputs.count == 1 ? outputs[0].lastPathComponent : "\(outputs.count) files"
-                HUD.shared.show(.done(name, outputs), near: point)
+                Island.shared.done(outputs)
+            } catch is CancellationError {
+                if !action.interactive { Island.shared.hide() }
             } catch {
-                HUD.shared.show(.failed(error.localizedDescription), near: point)
+                Island.shared.failed(error.localizedDescription)
             }
         }
     }

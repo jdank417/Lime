@@ -5,14 +5,15 @@
 
 import AppKit
 import Combine
+import QuickLookThumbnailing
 import SwiftUI
 import UniformTypeIdentifiers
 
 /// Hit-testing math for the wheel, in a top-left-origin coordinate space.
 nonisolated enum WheelGeometry {
-    static let size: CGFloat = 400
-    static let inner: CGFloat = 62
-    static let outer: CGFloat = 160
+    static let size: CGFloat = 250
+    static let inner: CGFloat = 38
+    static let outer: CGFloat = 110
 
     /// Which wedge sits under `point`, or nil over the center (cancel) or outside the panel.
     static func index(at point: CGPoint, count: Int) -> Int? {
@@ -38,6 +39,9 @@ final class WheelController: ObservableObject {
     @Published private(set) var mode: WheelMode = .convert
     @Published private(set) var urls: [URL] = []
     @Published private(set) var icon = NSImage()
+    /// A real preview of the file; nil until Quick Look delivers one (or if it can't).
+    @Published private(set) var thumbnail: NSImage?
+    @Published private(set) var sizeText = ""
     @Published private(set) var hovered: Int?
     @Published private(set) var shown = false
 
@@ -49,10 +53,7 @@ final class WheelController: ObservableObject {
 
     func show(urls: [URL], mode: WheelMode, at point: NSPoint) {
         pendingHide?.cancel()
-        self.urls = urls
-        self.mode = mode
-        actions = ActionCatalog.actions(for: urls, mode: mode)
-        icon = urls.count == 1 ? NSWorkspace.shared.icon(forFile: urls[0].path) : NSWorkspace.shared.icon(for: .data)
+        load(urls: urls, mode: mode)
         hovered = nil
         center = point
         shown = false
@@ -61,15 +62,41 @@ final class WheelController: ObservableObject {
         panel.setFrameOrigin(NSPoint(x: point.x - half, y: point.y - half))
         panel.orderFrontRegardless()
         DispatchQueue.main.async {
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) { self.shown = true }
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.74)) { self.shown = true }
+        }
+    }
+
+    private func load(urls: [URL], mode: WheelMode) {
+        self.urls = urls
+        self.mode = mode
+        actions = ActionCatalog.actions(for: urls, mode: mode)
+        icon = urls.count == 1 ? NSWorkspace.shared.icon(forFile: urls[0].path) : NSWorkspace.shared.icon(for: .data)
+        thumbnail = nil
+
+        let bytes = urls.reduce(Int64(0)) { total, url in
+            total + Int64((try? url.resourceValues(forKeys: [.totalFileSizeKey]).totalFileSize) ?? 0)
+        }
+        let size = ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+        sizeText = urls.count == 1 ? size : "\(urls.count) files · \(size)"
+
+        guard let first = urls.first else { return }
+        let scale = NSScreen.main?.backingScaleFactor ?? 2
+        let request = QLThumbnailGenerator.Request(fileAt: first, size: CGSize(width: 160, height: 160), scale: scale,
+                                                   representationTypes: .thumbnail)
+        Task {
+            guard let representation = try? await QLThumbnailGenerator.shared.generateBestRepresentation(for: request),
+                  self.urls.first == first else { return }
+            withAnimation(.easeOut(duration: 0.15)) { self.thumbnail = representation.nsImage }
         }
     }
 
     func setMode(_ mode: WheelMode) {
         guard mode != self.mode else { return }
         self.mode = mode
-        actions = ActionCatalog.actions(for: urls, mode: mode)
-        hovered = nil
+        withAnimation(.easeOut(duration: 0.15)) {
+            actions = ActionCatalog.actions(for: urls, mode: mode)
+            hovered = nil
+        }
     }
 
     /// Called when the mouse button goes up. The drop (if any) arrives around the same time,
@@ -90,7 +117,7 @@ final class WheelController: ObservableObject {
     func updateHover(at point: CGPoint) {
         let index = WheelGeometry.index(at: point, count: actions.count)
         guard index != hovered else { return }
-        withAnimation(.easeOut(duration: 0.12)) { hovered = index }
+        withAnimation(.spring(response: 0.22, dampingFraction: 0.8)) { hovered = index }
         if index != nil {
             NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
         }
@@ -103,10 +130,7 @@ final class WheelController: ObservableObject {
     #if DEBUG
     /// Puts the wheel in a given state without showing the panel, for previews and snapshot tests.
     func stage(urls: [URL], mode: WheelMode, hovered: Int?) {
-        self.urls = urls
-        self.mode = mode
-        actions = ActionCatalog.actions(for: urls, mode: mode)
-        icon = NSWorkspace.shared.icon(forFile: urls[0].path)
+        load(urls: urls, mode: mode)
         self.hovered = hovered
         shown = true
     }
@@ -121,7 +145,7 @@ final class WheelController: ObservableObject {
         let action = actions[index]
         let targets = dropped.isEmpty ? urls : dropped
         hide()
-        ActionRunner.shared.run(action, on: targets, near: center)
+        ActionRunner.shared.run(action, on: targets)
         return true
     }
 }
@@ -171,7 +195,10 @@ final class WheelDropView: NSView {
 
     override var isFlipped: Bool { true }
 
-    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation { track(sender) }
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        shrinkDragImages(sender)
+        return track(sender)
+    }
     override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation { track(sender) }
     override func draggingExited(_ sender: NSDraggingInfo?) { controller?.clearHover() }
 
@@ -183,6 +210,22 @@ final class WheelDropView: NSView {
 
     override func mouseDown(with event: NSEvent) { controller?.hide() }
 
+    /// Swaps Finder's big preview (and its name label) for a small thumbnail beside the cursor,
+    /// so the slices stay readable. Finder's own preview comes back once the drag leaves the wheel.
+    private func shrinkDragImages(_ sender: NSDraggingInfo) {
+        guard let controller else { return }
+        let image = controller.thumbnail ?? controller.icon
+        let cursor = convert(sender.draggingLocation, from: nil)
+        let side: CGFloat = 26
+        sender.enumerateDraggingItems(options: [.clearNonenumeratedImages], for: self, classes: [NSURL.self],
+                                      searchOptions: [.urlReadingFileURLsOnly: true]) { item, index, _ in
+            // Stack a few small tiles just below and right of the pointer.
+            let offset = CGFloat(min(index, 3)) * 4
+            let frame = NSRect(x: cursor.x + 10 + offset, y: cursor.y + 14 + offset, width: side, height: side)
+            item.setDraggingFrame(frame, contents: index < 4 ? image : nil)
+        }
+    }
+
     private func track(_ sender: NSDraggingInfo) -> NSDragOperation {
         controller?.updateHover(at: convert(sender.draggingLocation, from: nil))
         // Over the center nothing is selected, so releasing there cancels.
@@ -192,102 +235,124 @@ final class WheelDropView: NSView {
 
 // MARK: - Drawing
 
+/// Liquid glass: a glass rim with separate rounded glass slices inside it and the file in the middle.
 struct WheelView: View {
     @ObservedObject var controller: WheelController
 
     var body: some View {
         let count = controller.actions.count
         ZStack {
-            Circle()
-                .fill(Theme.glass.opacity(0.35))
-                .frame(width: WheelGeometry.outer * 2 + 14, height: WheelGeometry.outer * 2 + 14)
-                .shadow(color: .black.opacity(0.35), radius: 18, y: 6)
+            Color.clear
+                .frame(width: (WheelGeometry.outer + 7) * 2, height: (WheelGeometry.outer + 7) * 2)
+                .glassEffect(.clear.tint(.white.opacity(0.04)), in: Circle())
+                .overlay(Circle().strokeBorder(.white.opacity(0.35), lineWidth: 0.75))
+                .shadow(color: .black.opacity(0.12), radius: 12, y: 5)
 
             if count == 0 {
-                AnnularSector(start: .degrees(0), end: .degrees(360), inner: WheelGeometry.inner, outer: WheelGeometry.outer)
-                    .fill(Theme.glass.opacity(0.88))
                 Text("Nothing to do\nfor this file")
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
                     .multilineTextAlignment(.center)
-                    .foregroundStyle(.white.opacity(0.7))
+                    .foregroundStyle(.black.opacity(0.6))
                     .offset(y: -(WheelGeometry.inner + WheelGeometry.outer) / 2)
             }
 
             ForEach(Array(controller.actions.enumerated()), id: \.element.id) { index, action in
-                Wedge(action: action, index: index, count: count, isHovered: controller.hovered == index)
+                GlassSlice(action: action, index: index, count: count, mode: controller.mode,
+                           isHovered: controller.hovered == index)
             }
 
-            center
+            hub
         }
         .frame(width: WheelGeometry.size, height: WheelGeometry.size)
-        .scaleEffect(controller.shown ? 1 : 0.55)
+        .scaleEffect(controller.shown ? 1 : 0.6)
         .opacity(controller.shown ? 1 : 0)
     }
 
-    private var center: some View {
+    private var hub: some View {
+        let diameter = (WheelGeometry.inner - 4) * 2
         let hovered = controller.hovered.flatMap { controller.actions.indices.contains($0) ? controller.actions[$0] : nil }
         return ZStack {
-            Circle().fill(Theme.glass.opacity(0.94))
-            Circle().strokeBorder(Theme.lime.opacity(0.8), lineWidth: 2)
-            VStack(spacing: 3) {
+            if let thumbnail = controller.thumbnail {
+                Image(nsImage: thumbnail)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: diameter, height: diameter)
+                    .clipShape(Circle())
+            } else {
+                Color.clear
+                    .frame(width: diameter, height: diameter)
+                    .glassEffect(.clear, in: Circle())
                 Image(nsImage: controller.icon)
                     .resizable()
                     .frame(width: 34, height: 34)
-                Text(hovered?.title ?? (controller.urls.count > 1 ? "\(controller.urls.count) files" : controller.mode.title))
-                    .font(.system(size: 10.5, weight: .semibold, design: .rounded))
-                    .foregroundStyle(hovered == nil ? .white.opacity(0.75) : Theme.limeLight)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-                    .frame(width: 92)
-                HStack(spacing: 6) {
-                    modeKey("⇧", .convert)
-                    modeKey("⌥", .tools)
-                }
+                    .offset(y: -8)
             }
+            Text(hovered?.label.uppercased() ?? controller.sizeText)
+                .font(.system(size: 9, weight: .bold, design: .rounded))
+                .foregroundStyle(.black.opacity(0.85))
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .frame(maxWidth: diameter + 8)
+                .glassEffect(.regular.tint(.white.opacity(0.5)), in: Capsule())
+                .offset(y: controller.thumbnail == nil ? 18 : 0)
         }
-        .frame(width: (WheelGeometry.inner - 6) * 2, height: (WheelGeometry.inner - 6) * 2)
-    }
-
-    private func modeKey(_ key: String, _ mode: WheelMode) -> some View {
-        let active = controller.mode == mode
-        return Text(key)
-            .font(.system(size: 10, weight: .bold))
-            .foregroundStyle(active ? Theme.ink : .white.opacity(0.5))
-            .frame(width: 18, height: 14)
-            .background(active ? AnyShapeStyle(Theme.lime) : AnyShapeStyle(.white.opacity(0.1)), in: .rect(cornerRadius: 4))
+        .overlay(Circle().strokeBorder(.white.opacity(0.55), lineWidth: 1).frame(width: diameter, height: diameter))
     }
 }
 
-private struct Wedge: View {
+private struct GlassSlice: View {
     let action: LimeAction
     let index: Int
     let count: Int
+    let mode: WheelMode
     let isHovered: Bool
 
     var body: some View {
         let step = 360 / Double(count)
         let middle = WheelGeometry.centerAngle(of: index, count: count)
-        let gap = count > 1 ? 1.3 : 0
-        let shape = AnnularSector(start: .degrees(middle - step / 2 + gap), end: .degrees(middle + step / 2 - gap),
-                                  inner: WheelGeometry.inner, outer: WheelGeometry.outer)
-        let radius = (WheelGeometry.inner + WheelGeometry.outer) / 2 + 4
+        let shape = RoundedSlice(start: .degrees(middle - step / 2), end: .degrees(middle + step / 2),
+                                 inner: WheelGeometry.inner, outer: WheelGeometry.outer,
+                                 gap: 5, corner: count > 8 ? 8 : 11)
+        let radius = (WheelGeometry.inner + WheelGeometry.outer) / 2 + 3
         let radians = middle * .pi / 180
 
         ZStack {
-            shape.fill(isHovered ? AnyShapeStyle(Theme.gradient) : AnyShapeStyle(Theme.glass.opacity(0.86)))
-            shape.stroke(Theme.lime.opacity(isHovered ? 1 : 0.3), lineWidth: 1)
-            VStack(spacing: 4) {
+            Color.clear
+                .frame(width: WheelGeometry.size, height: WheelGeometry.size)
+                .glassEffect(.clear.tint(.white.opacity(0.16)), in: shape)
+            // A solid lime fill, so the hovered slice reads as green over any desktop.
+            shape.fill(Theme.gradient)
+                .opacity(isHovered ? 0.92 : 0)
+            shape.stroke(.white.opacity(isHovered ? 0.9 : 0.4), lineWidth: 0.75)
+            label
+                .foregroundStyle(isHovered ? Theme.ink : .black.opacity(0.78))
+                .offset(x: radius * cos(radians), y: radius * sin(radians))
+        }
+        .frame(width: WheelGeometry.size, height: WheelGeometry.size)
+        .scaleEffect(isHovered ? 1.05 : 1)
+    }
+
+    @ViewBuilder private var label: some View {
+        if mode == .tools {
+            VStack(spacing: 2) {
                 Image(systemName: action.symbol)
-                    .font(.system(size: 17, weight: .semibold))
-                Text(action.label)
-                    .font(.system(size: 12, weight: .heavy, design: .rounded))
+                    .font(.system(size: 12, weight: .semibold))
+                Text(action.label.uppercased())
+                    .font(.system(size: 7.5, weight: .heavy, design: .rounded))
+                    .tracking(0.3)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
-                    .frame(maxWidth: 64)
+                    .frame(maxWidth: 46)
             }
-            .foregroundStyle(isHovered ? Theme.ink : .white)
-            .offset(x: radius * cos(radians), y: radius * sin(radians))
+        } else {
+            Text(action.label.uppercased())
+                .font(.system(size: count > 8 ? 10 : 12, weight: .heavy, design: .rounded))
+                .tracking(0.3)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .frame(maxWidth: 46)
         }
-        .scaleEffect(isHovered ? 1.05 : 1)
     }
 }

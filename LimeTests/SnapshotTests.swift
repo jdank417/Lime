@@ -22,7 +22,12 @@ struct SnapshotTests {
             controller.stage(urls: [image], mode: mode, hovered: hovered)
             try save(WheelView(controller: controller).background(Color(white: 0.55)), to: out.appendingPathComponent("\(name).png"))
         }
-        try save(ContentView().background(Color(nsColor: .windowBackgroundColor)), to: out.appendingPathComponent("window.png"))
+        try save(ContentView().background(LimeWindowBackground()), to: out.appendingPathComponent("window.png"))
+
+        let session = EditorSession()
+        try save(AdjustEditor(urls: [image], session: session).frame(width: 620, height: 760), to: out.appendingPathComponent("edit.png"))
+        try save(CompressImageEditor(urls: [image], session: session).frame(width: 540, height: 470), to: out.appendingPathComponent("compress.png"))
+        try save(SpeedEditor(url: image, session: session).frame(width: 540, height: 330), to: out.appendingPathComponent("speed.png"))
     }
 
     private func save(_ view: some View, to url: URL) throws {

@@ -91,7 +91,7 @@ nonisolated enum ArchiveTool {
             .filter { !$0.lastPathComponent.hasPrefix(".") && $0.lastPathComponent != "__MACOSX" }
     }
 
-    private static func run(_ tool: String, _ arguments: [String], in dir: URL? = nil) async throws {
+    static func run(_ tool: String, _ arguments: [String], in dir: URL? = nil) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             let process = Process()
             process.executableURL = URL(fileURLWithPath: tool)

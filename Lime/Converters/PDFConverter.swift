@@ -76,6 +76,33 @@ nonisolated enum PDFConverter {
         return out
     }
 
+    struct PageChoice: Sendable {
+        /// Index in the original document.
+        let index: Int
+        /// Degrees added to the page's rotation.
+        let rotation: Int
+    }
+
+    /// Rebuilds the PDF with pages in a new order, some rotated or left out.
+    static func reorganize(_ url: URL, pages: [PageChoice]) throws -> URL {
+        let source = try open(url)
+        let result = PDFDocument()
+        for choice in pages {
+            guard let page = source.page(at: choice.index)?.copy() as? PDFPage else { continue }
+            page.rotation = (page.rotation + choice.rotation) % 360
+            result.insert(page, at: result.pageCount)
+        }
+        guard result.pageCount > 0 else { throw LimeError.failed("There are no pages left") }
+        let out = Output.url(for: url, ext: "pdf", suffix: "reorganized")
+        try save(result, to: out)
+        return out
+    }
+
+    static func thumbnails(_ url: URL, size: CGFloat) throws -> [NSImage] {
+        let document = try open(url)
+        return (0..<document.pageCount).compactMap { document.page(at: $0)?.thumbnail(of: NSSize(width: size, height: size), for: .cropBox) }
+    }
+
     static func compress(_ url: URL) throws -> URL {
         let document = try open(url)
         let out = Output.url(for: url, ext: "pdf", suffix: "compressed")

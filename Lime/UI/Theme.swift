@@ -80,3 +80,79 @@ enum LimeMark {
         return image
     }()
 }
+
+/// A wheel slice with rounded corners and a gap to its neighbours, like a glass segment.
+/// Built as a thinner slice grown outward by `corner` in every direction (stroke + union),
+/// which rounds every corner by exactly that radius.
+struct RoundedSlice: Shape {
+    var start: Angle
+    var end: Angle
+    var inner: CGFloat
+    var outer: CGFloat
+    var gap: CGFloat = 7
+    var corner: CGFloat = 16
+
+    func path(in rect: CGRect) -> Path {
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        if end.degrees - start.degrees >= 359 {
+            var ring = Path()
+            ring.addArc(center: center, radius: outer, startAngle: .zero, endAngle: .degrees(360), clockwise: false)
+            ring.addArc(center: center, radius: inner, startAngle: .degrees(360), endAngle: .zero, clockwise: true)
+            return ring
+        }
+        // Each straight edge moves inward by `offset`; at radius r that's an angle of asin(offset / r).
+        let offset = gap / 2 + corner
+        let outerR = outer - corner, innerR = inner + corner
+        guard outerR > innerR, offset < innerR else { return Path() }
+        let outerTrim = asin(offset / outerR), innerTrim = asin(offset / innerR)
+        let a0 = start.radians, a1 = end.radians
+        guard a1 - a0 > 2 * innerTrim else { return Path() }
+
+        var core = Path()
+        core.addArc(center: center, radius: outerR, startAngle: .radians(a0 + outerTrim), endAngle: .radians(a1 - outerTrim), clockwise: false)
+        core.addArc(center: center, radius: innerR, startAngle: .radians(a1 - innerTrim), endAngle: .radians(a0 + innerTrim), clockwise: true)
+        core.closeSubpath()
+        let grown = core.cgPath.copy(strokingWithWidth: corner * 2, lineCap: .round, lineJoin: .round, miterLimit: 10)
+        return Path(core.cgPath.union(grown))
+    }
+}
+
+/// The lime glass backdrop shared by Lime's windows.
+struct LimeWindowBackground: View {
+    var body: some View {
+        LinearGradient(colors: [Color(red: 0.86, green: 0.97, blue: 0.55), Color(red: 0.56, green: 0.84, blue: 0.24),
+                                Color(red: 0.27, green: 0.69, blue: 0.47)],
+                       startPoint: .topLeading, endPoint: .bottomTrailing)
+            .opacity(0.88)
+            .background(Color.clear.glassEffect(.regular, in: .rect))
+            .ignoresSafeArea()
+    }
+}
+
+/// Dark green filled button, for the main action of a window.
+struct LimeProminentButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 13, weight: .bold, design: .rounded))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 8)
+            .background(Theme.limeDeep.opacity(isEnabled ? (configuration.isPressed ? 0.75 : 1) : 0.4), in: .capsule)
+    }
+}
+
+/// Translucent glass capsule, for secondary buttons.
+struct GlassPillButtonStyle: ButtonStyle {
+    var selected = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 12, weight: .semibold, design: .rounded))
+            .foregroundStyle(selected ? .white : Theme.ink)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(selected ? AnyShapeStyle(Theme.limeDeep) : AnyShapeStyle(.white.opacity(configuration.isPressed ? 0.55 : 0.35)), in: .capsule)
+    }
+}

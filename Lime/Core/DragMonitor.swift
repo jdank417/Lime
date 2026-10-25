@@ -50,7 +50,8 @@ final class DragMonitor {
         }
 
         let flags = NSEvent.modifierFlags
-        let held: WheelMode? = flags.contains(.option) ? .tools : flags.contains(.shift) ? .convert : nil
+        let held: WheelMode? = flags.contains(Prefs.toolsKey.flag) ? .tools
+            : flags.contains(Prefs.convertKey.flag) ? .convert : nil
 
         if active {
             if let held, held != mode {

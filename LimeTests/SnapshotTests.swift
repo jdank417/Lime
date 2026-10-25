@@ -22,7 +22,12 @@ struct SnapshotTests {
             controller.stage(urls: [image], mode: mode, hovered: hovered)
             try save(WheelView(controller: controller).background(Color(white: 0.55)), to: out.appendingPathComponent("\(name).png"))
         }
-        try save(ContentView().background(LimeWindowBackground()), to: out.appendingPathComponent("window.png"))
+        try save(ContentView(), to: out.appendingPathComponent("window.png"))
+        // Scroll views don't render here, so draw the tabs' content on its own.
+        try save(SettingsTab().padding(24).frame(width: 560).background(LimeWindowBackground()).foregroundStyle(Theme.ink),
+                 to: out.appendingPathComponent("settings.png"))
+        try save(AboutTab().padding(24).frame(width: 560).background(LimeWindowBackground()).foregroundStyle(Theme.ink),
+                 to: out.appendingPathComponent("about.png"))
 
         let session = EditorSession()
         try save(AdjustEditor(urls: [image], session: session).frame(width: 620, height: 760), to: out.appendingPathComponent("edit.png"))

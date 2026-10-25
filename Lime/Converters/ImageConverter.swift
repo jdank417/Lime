@@ -95,7 +95,7 @@ nonisolated enum ImageConverter {
                 document.insert(page, at: document.pageCount)
             }
         }
-        let out = Output.url(in: urls[0].deletingLastPathComponent(), base: "Combined", ext: "pdf")
+        let out = Output.url(in: Output.directory(for: urls[0]), base: "Combined", ext: "pdf")
         guard document.write(to: out) else { throw LimeError.failed("Couldn't save the PDF") }
         return out
     }
@@ -118,7 +118,7 @@ nonisolated enum ImageConverter {
         return cgImage
     }
 
-    static func write(_ image: CGImage, to url: URL, type: UTType, quality: Double = 0.9) throws {
+    static func write(_ image: CGImage, to url: URL, type: UTType, quality: Double = Prefs.imageQuality) throws {
         if type == .pdf {
             let document = PDFDocument()
             if let page = page(for: image) { document.insert(page, at: 0) }

@@ -439,7 +439,7 @@ nonisolated enum ImageTools {
             ctx.restoreGState()
         }
         guard let result = ctx.makeImage() else { throw LimeError.failed("Couldn't make the collage") }
-        let out = Output.url(in: urls[0].deletingLastPathComponent(), base: "Collage", ext: "png")
+        let out = Output.url(in: Output.directory(for: urls[0]), base: "Collage", ext: "png")
         try ImageConverter.write(result, to: out, type: .png)
         return out
     }

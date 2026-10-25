@@ -10,12 +10,13 @@ nonisolated enum ArchiveTool {
     /// "photo.jpg" → "photo.jpg.zip", like Finder's Compress. Several files → "Archive.zip".
     static func zip(_ urls: [URL]) async throws -> URL {
         let dir = urls[0].deletingLastPathComponent()
+        let destination = Output.directory(for: urls[0])
         if urls.count == 1 {
-            let out = Output.url(in: dir, base: urls[0].lastPathComponent, ext: "zip")
+            let out = Output.url(in: destination, base: urls[0].lastPathComponent, ext: "zip")
             try await run("/usr/bin/ditto", ["-c", "-k", "--sequesterRsrc", "--keepParent", urls[0].path, out.path])
             return out
         }
-        let out = Output.url(in: dir, base: "Archive", ext: "zip")
+        let out = Output.url(in: destination, base: "Archive", ext: "zip")
         try await run("/usr/bin/zip", ["-r", "-y", "-q", out.path] + urls.map(\.lastPathComponent), in: dir)
         return out
     }
@@ -23,13 +24,13 @@ nonisolated enum ArchiveTool {
     static func tarGz(_ urls: [URL]) async throws -> URL {
         let dir = urls[0].deletingLastPathComponent()
         let base = urls.count == 1 ? Output.baseName(of: urls[0]) : "Archive"
-        let out = Output.url(in: dir, base: base, ext: "tar.gz")
+        let out = Output.url(in: Output.directory(for: urls[0]), base: base, ext: "tar.gz")
         try await run("/usr/bin/tar", ["-czf", out.path, "-C", dir.path] + urls.map(\.lastPathComponent))
         return out
     }
 
     static func diskImage(_ folder: URL) async throws -> URL {
-        let out = Output.url(in: folder.deletingLastPathComponent(), base: folder.lastPathComponent, ext: "dmg")
+        let out = Output.url(in: Output.directory(for: folder), base: folder.lastPathComponent, ext: "dmg")
         try await run("/usr/bin/hdiutil", ["create", "-quiet", "-volname", folder.lastPathComponent,
                                            "-srcfolder", folder.path, "-format", "UDZO", out.path])
         return out
@@ -50,11 +51,11 @@ nonisolated enum ArchiveTool {
         if items.count == 1 {
             item = items[0]
             let ext = FileKind.of(item) == .folder ? "" : item.pathExtension
-            destination = Output.url(in: parent, base: ext.isEmpty ? item.lastPathComponent : item.deletingPathExtension().lastPathComponent, ext: ext)
+            destination = Output.url(in: Output.directory(for: url), base: ext.isEmpty ? item.lastPathComponent : item.deletingPathExtension().lastPathComponent, ext: ext)
         } else {
             try? FileManager.default.removeItem(at: scratch.appendingPathComponent("__MACOSX"))
             item = scratch
-            destination = Output.url(in: parent, base: Output.baseName(of: url), ext: "")
+            destination = Output.url(in: Output.directory(for: url), base: Output.baseName(of: url), ext: "")
         }
         try FileManager.default.moveItem(at: item, to: destination)
         return destination
@@ -68,7 +69,7 @@ nonisolated enum ArchiveTool {
         try await unpack(url, into: scratch)
 
         let names = try visibleContents(of: scratch).map(\.lastPathComponent)
-        let out = Output.url(in: url.deletingLastPathComponent(), base: Output.baseName(of: url), ext: format)
+        let out = Output.url(in: Output.directory(for: url), base: Output.baseName(of: url), ext: format)
         if format == "zip" {
             try await run("/usr/bin/zip", ["-r", "-y", "-q", out.path] + names, in: scratch)
         } else {

@@ -16,7 +16,7 @@ nonisolated enum PDFConverter {
             try ImageConverter.write(render(page), to: out, type: target.type)
             return out
         }
-        let folder = Output.url(in: url.deletingLastPathComponent(), base: base, ext: "", suffix: target.label)
+        let folder = Output.url(in: Output.directory(for: url), base: base, ext: "", suffix: target.label)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         for index in 0..<document.pageCount {
             guard let page = document.page(at: index) else { continue }
@@ -47,7 +47,7 @@ nonisolated enum PDFConverter {
                 }
             }
         }
-        let out = Output.url(in: urls[0].deletingLastPathComponent(), base: "Merged", ext: "pdf")
+        let out = Output.url(in: Output.directory(for: urls[0]), base: "Merged", ext: "pdf")
         try save(merged, to: out)
         return out
     }
@@ -55,7 +55,7 @@ nonisolated enum PDFConverter {
     static func split(_ url: URL) throws -> URL {
         let document = try open(url)
         let base = Output.baseName(of: url)
-        let folder = Output.url(in: url.deletingLastPathComponent(), base: base, ext: "", suffix: "pages")
+        let folder = Output.url(in: Output.directory(for: url), base: base, ext: "", suffix: "pages")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         for index in 0..<document.pageCount {
             guard let page = document.page(at: index)?.copy() as? PDFPage else { continue }

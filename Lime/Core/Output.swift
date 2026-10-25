@@ -7,9 +7,23 @@ import Foundation
 
 /// Picks where converted files go: next to the original, never overwriting anything.
 nonisolated enum Output {
-    /// "photo.heic" + "png" → "photo.png" (or "photo 2.png" if taken).
+    /// "photo.heic" + "png" → "photo.png" (or "photo 2.png" if taken), in the folder from Settings.
     static func url(for source: URL, ext: String, suffix: String? = nil) -> URL {
-        url(in: source.deletingLastPathComponent(), base: baseName(of: source), ext: ext, suffix: suffix)
+        url(in: directory(for: source), base: baseName(of: source), ext: ext, suffix: suffix)
+    }
+
+    /// Where results of `source` go: beside it, in Downloads, or in the chosen folder.
+    static func directory(for source: URL) -> URL {
+        let beside = source.deletingLastPathComponent()
+        switch Prefs.saveLocation {
+        case .beside:
+            return beside
+        case .downloads:
+            return FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first ?? beside
+        case .folder:
+            guard let folder = Prefs.customFolder, FileManager.default.fileExists(atPath: folder.path) else { return beside }
+            return folder
+        }
     }
 
     /// An empty `ext` produces a folder URL.

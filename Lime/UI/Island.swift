@@ -110,6 +110,7 @@ final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
 
 private struct IslandView: View {
     @ObservedObject var island: Island
+    @AppStorage(Prefs.Key.hoverColor) private var accent = Prefs.HoverColor.lime
 
     var body: some View {
         VStack {
@@ -123,7 +124,7 @@ private struct IslandView: View {
                 pill {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 18))
-                        .foregroundStyle(Theme.limeLight)
+                        .foregroundStyle(accent.colors[0])
                     Text("\(name) is ready")
                         .lineLimit(1)
                         .truncationMode(.middle)
@@ -192,18 +193,19 @@ private struct IslandView: View {
 /// Determinate when `value` is set, otherwise a sliding sliver.
 private struct ProgressBar: View {
     let value: Double?
+    @AppStorage(Prefs.Key.hoverColor) private var accent = Prefs.HoverColor.lime
 
     var body: some View {
         GeometryReader { geometry in
             let width = geometry.size.width
             ZStack(alignment: .leading) {
-                Capsule().fill(Theme.lime.opacity(0.22))
+                Capsule().fill(accent.colors[1].opacity(0.25))
                 if let value {
-                    Capsule().fill(Theme.gradient).frame(width: max(6, width * value))
+                    Capsule().fill(accent.gradient).frame(width: max(6, width * value))
                 } else {
                     TimelineView(.animation) { timeline in
                         let phase = timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1.4) / 1.4
-                        Capsule().fill(Theme.gradient)
+                        Capsule().fill(accent.gradient)
                             .frame(width: width * 0.3)
                             .offset(x: (width * 1.3) * phase - width * 0.3)
                     }

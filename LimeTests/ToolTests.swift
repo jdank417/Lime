@@ -183,6 +183,34 @@ extension LimeTests {
         #expect(try PDFConverter.thumbnails(merged, size: 50).count == 3)
     }
 
+    // MARK: Settings
+
+    @Test func saveLocationSetting() throws {
+        // The test host shares Lime's real settings, so put them back afterwards.
+        let defaults = UserDefaults.standard
+        let saved = (defaults.object(forKey: Prefs.Key.saveLocation), defaults.object(forKey: Prefs.Key.customFolder))
+        defer {
+            defaults.set(saved.0, forKey: Prefs.Key.saveLocation)
+            defaults.set(saved.1, forKey: Prefs.Key.customFolder)
+        }
+        let source = try makePNG()
+        let folder = dir.appendingPathComponent("Out", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+
+        defaults.set(Prefs.SaveLocation.folder.rawValue, forKey: Prefs.Key.saveLocation)
+        Prefs.customFolder = folder
+        let converted = try ImageConverter.convert(source, to: ImageConverter.jpeg)
+        #expect(converted.deletingLastPathComponent().standardizedFileURL == folder.standardizedFileURL)
+
+        defaults.set(Prefs.SaveLocation.beside.rawValue, forKey: Prefs.Key.saveLocation)
+        #expect(Output.directory(for: source) == source.deletingLastPathComponent())
+
+        // A folder that's gone falls back to beside the original.
+        defaults.set(Prefs.SaveLocation.folder.rawValue, forKey: Prefs.Key.saveLocation)
+        Prefs.customFolder = dir.appendingPathComponent("Missing", isDirectory: true)
+        #expect(Output.directory(for: source) == source.deletingLastPathComponent())
+    }
+
     // MARK: Catalog
 
     @Test func toolsCatalog() throws {

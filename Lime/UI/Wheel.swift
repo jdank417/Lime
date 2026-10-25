@@ -44,6 +44,8 @@ final class WheelController: ObservableObject {
     @Published private(set) var sizeText = ""
     @Published private(set) var hovered: Int?
     @Published private(set) var shown = false
+    /// From the Size setting; the wheel is drawn at its base size and scaled.
+    @Published private(set) var scale: CGFloat = 1
 
     private lazy var panel = WheelPanel(controller: self)
     private var center: NSPoint = .zero
@@ -57,9 +59,11 @@ final class WheelController: ObservableObject {
         hovered = nil
         center = point
         shown = false
+        scale = Prefs.wheelScale
 
-        let half = WheelGeometry.size / 2
-        panel.setFrameOrigin(NSPoint(x: point.x - half, y: point.y - half))
+        let side = WheelGeometry.size * scale
+        panel.setContentSize(NSSize(width: side, height: side))
+        panel.setFrameOrigin(NSPoint(x: point.x - side / 2, y: point.y - side / 2))
         panel.orderFrontRegardless()
         DispatchQueue.main.async {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.74)) { self.shown = true }
@@ -114,11 +118,12 @@ final class WheelController: ObservableObject {
         hovered = nil
     }
 
+    /// `point` is in the panel's (scaled) coordinates.
     func updateHover(at point: CGPoint) {
-        let index = WheelGeometry.index(at: point, count: actions.count)
+        let index = WheelGeometry.index(at: CGPoint(x: point.x / scale, y: point.y / scale), count: actions.count)
         guard index != hovered else { return }
         withAnimation(.spring(response: 0.22, dampingFraction: 0.8)) { hovered = index }
-        if index != nil {
+        if index != nil && Prefs.haptics {
             NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
         }
     }
@@ -213,7 +218,7 @@ final class WheelDropView: NSView {
     /// Swaps Finder's big preview (and its name label) for a small thumbnail beside the cursor,
     /// so the slices stay readable. Finder's own preview comes back once the drag leaves the wheel.
     private func shrinkDragImages(_ sender: NSDraggingInfo) {
-        guard let controller else { return }
+        guard let controller, Prefs.shrinkDragPreview else { return }
         let image = controller.thumbnail ?? controller.icon
         let cursor = convert(sender.draggingLocation, from: nil)
         let side: CGFloat = 26
@@ -238,13 +243,15 @@ final class WheelDropView: NSView {
 /// Liquid glass: a glass rim with separate rounded glass slices inside it and the file in the middle.
 struct WheelView: View {
     @ObservedObject var controller: WheelController
+    @AppStorage(Prefs.Key.glass) private var glass = Prefs.GlassStyle.clear
+    @AppStorage(Prefs.Key.hoverColor) private var hoverColor = Prefs.HoverColor.lime
 
     var body: some View {
         let count = controller.actions.count
         ZStack {
             Color.clear
                 .frame(width: (WheelGeometry.outer + 7) * 2, height: (WheelGeometry.outer + 7) * 2)
-                .glassEffect(.clear.tint(.white.opacity(0.04)), in: Circle())
+                .glassEffect(glass == .clear ? .clear.tint(.white.opacity(0.04)) : .regular.tint(.white.opacity(0.1)), in: Circle())
                 .overlay(Circle().strokeBorder(.white.opacity(0.35), lineWidth: 0.75))
                 .shadow(color: .black.opacity(0.12), radius: 12, y: 5)
 
@@ -258,14 +265,15 @@ struct WheelView: View {
 
             ForEach(Array(controller.actions.enumerated()), id: \.element.id) { index, action in
                 GlassSlice(action: action, index: index, count: count, mode: controller.mode,
-                           isHovered: controller.hovered == index)
+                           isHovered: controller.hovered == index, glass: glass, hoverColor: hoverColor)
             }
 
             hub
         }
         .frame(width: WheelGeometry.size, height: WheelGeometry.size)
-        .scaleEffect(controller.shown ? 1 : 0.6)
+        .scaleEffect(controller.shown ? controller.scale : controller.scale * 0.6)
         .opacity(controller.shown ? 1 : 0)
+        .frame(width: WheelGeometry.size * controller.scale, height: WheelGeometry.size * controller.scale)
     }
 
     private var hub: some View {
@@ -308,6 +316,8 @@ private struct GlassSlice: View {
     let count: Int
     let mode: WheelMode
     let isHovered: Bool
+    let glass: Prefs.GlassStyle
+    let hoverColor: Prefs.HoverColor
 
     var body: some View {
         let step = 360 / Double(count)
@@ -321,9 +331,9 @@ private struct GlassSlice: View {
         ZStack {
             Color.clear
                 .frame(width: WheelGeometry.size, height: WheelGeometry.size)
-                .glassEffect(.clear.tint(.white.opacity(0.16)), in: shape)
-            // A solid lime fill, so the hovered slice reads as green over any desktop.
-            shape.fill(Theme.gradient)
+                .glassEffect(glass == .clear ? .clear.tint(.white.opacity(0.16)) : .regular.tint(.white.opacity(0.35)), in: shape)
+            // A solid fill, so the hovered slice stands out over any desktop.
+            shape.fill(hoverColor.gradient)
                 .opacity(isHovered ? 0.92 : 0)
             shape.stroke(.white.opacity(isHovered ? 0.9 : 0.4), lineWidth: 0.75)
             label

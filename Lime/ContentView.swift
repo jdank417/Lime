@@ -5,43 +5,100 @@
 //  Created by Jason Dank on 10/25/26.
 //
 
-import ServiceManagement
 import SwiftUI
 
+/// The main window: Home, Settings and About under one close button.
 struct ContentView: View {
-    @AppStorage("enabled") private var enabled = true
+    enum Tab: String, CaseIterable, Identifiable {
+        case home = "Home", settings = "Settings", about = "About"
+        var id: String { rawValue }
+    }
+
+    var close: () -> Void
+    @State private var tab: Tab
+
+    init(initialTab: Tab = .home, close: @escaping () -> Void = {}) {
+        self.close = close
+        _tab = State(initialValue: initialTab)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ZStack {
+                Picker("Section", selection: $tab) {
+                    ForEach(Tab.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(width: 270)
+                // The standard red, yellow and green buttons sit at the top left; this just gives ⌘W.
+                Button("Close", action: close)
+                    .keyboardShortcut("w", modifiers: .command)
+                    .hidden()
+            }
+            .padding(.horizontal, 14)
+            .frame(height: 54)
+            Rectangle().fill(Theme.ink.opacity(0.12)).frame(height: 1)
+
+            ScrollView {
+                Group {
+                    switch tab {
+                    case .home: HomeTab(openSettings: { tab = .settings })
+                    case .settings: SettingsTab()
+                    case .about: AboutTab()
+                    }
+                }
+                .padding(24)
+            }
+        }
+        .frame(width: 560, height: 660)
+        .foregroundStyle(Theme.ink)
+        .tint(Theme.limeDeep)
+        .background(LimeWindowBackground())
+        .onReceive(NotificationCenter.default.publisher(for: .limeShowTab)) { note in
+            if let requested = note.object as? Tab { tab = requested }
+        }
+    }
+}
+
+// MARK: - Home
+
+private struct HomeTab: View {
+    let openSettings: () -> Void
+    @AppStorage(Prefs.Key.enabled) private var enabled = true
+    @AppStorage(Prefs.Key.convertKey) private var convertKey = Prefs.ConvertKey.shift
+    @AppStorage(Prefs.Key.toolsKey) private var toolsKey = Prefs.ToolsKey.option
+    @AppStorage(Prefs.Key.saveLocation) private var saveLocation = Prefs.SaveLocation.beside
     @ObservedObject private var runner = ActionRunner.shared
     @State private var dropped: [URL] = []
     @State private var isTargeted = false
-    @State private var opensAtLogin = SMAppService.mainApp.status == .enabled
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             header
             HStack(spacing: 12) {
-                HintCard(key: "⇧", title: "Shift + drag", subtitle: "Convert to another format")
-                HintCard(key: "⌥", title: "Option + drag", subtitle: "Edit, crop, trim, compress…")
+                HintCard(key: convertKey.symbol, title: "\(convertKey.name) + drag", subtitle: "Convert to another format")
+                HintCard(key: toolsKey.symbol, title: "\(toolsKey.name) + drag", subtitle: "Edit, crop, trim, compress…")
             }
             dropZone
             if !runner.history.isEmpty { recent }
-            Divider()
-            Toggle("Open Lime at login", isOn: $opensAtLogin)
-                .onChange(of: opensAtLogin) { _, on in
-                    do {
-                        if on { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
-                    } catch {
-                        opensAtLogin = SMAppService.mainApp.status == .enabled
-                    }
-                }
-            Text("Everything is converted on this Mac. New files are saved next to the originals.")
-                .font(.caption)
-                .foregroundStyle(Theme.ink.opacity(0.7))
+            HStack {
+                Text("Everything happens on this Mac. New files go \(destination).")
+                Spacer()
+                Button("Settings…", action: openSettings)
+                    .buttonStyle(GlassPillButtonStyle())
+            }
+            .font(.caption)
+            .foregroundStyle(Theme.ink.opacity(0.7))
         }
-        .padding(24)
-        .padding(.top, 8)
-        .frame(width: 540)
-        .foregroundStyle(Theme.ink)
-        .tint(Theme.limeDeep)
+    }
+
+    private var destination: String {
+        switch saveLocation {
+        case .beside: "next to the originals"
+        case .downloads: "to Downloads"
+        case .folder: "to \(Prefs.customFolder?.lastPathComponent ?? "your chosen folder")"
+        }
     }
 
     private var header: some View {
@@ -136,7 +193,7 @@ struct ContentView: View {
                 .foregroundStyle(Theme.ink.opacity(0.7))
             ForEach(runner.history.prefix(4)) { item in
                 HStack {
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.lime)
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.limeDeep)
                     Text(item.outputs.count == 1 ? item.outputs[0].lastPathComponent : "\(item.outputs.count) files")
                         .lineLimit(1)
                         .truncationMode(.middle)
@@ -178,8 +235,8 @@ private struct HintCard: View {
 private struct LimeButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .foregroundStyle(configuration.isPressed ? Theme.ink : Theme.ink)
-            .background(configuration.isPressed ? AnyShapeStyle(Theme.gradient) : AnyShapeStyle(Theme.lime.opacity(0.14)),
+            .foregroundStyle(Theme.ink)
+            .background(configuration.isPressed ? AnyShapeStyle(Theme.gradient) : AnyShapeStyle(.white.opacity(0.3)),
                         in: .rect(cornerRadius: 9))
     }
 }

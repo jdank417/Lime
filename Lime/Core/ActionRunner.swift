@@ -36,6 +36,8 @@ final class ActionRunner: ObservableObject {
                 history.insert(HistoryItem(title: action.title, outputs: outputs, date: .now), at: 0)
                 history = Array(history.prefix(20))
                 Island.shared.done(outputs)
+                if Prefs.soundWhenDone { NSSound(named: "Glass")?.play() }
+                if Prefs.revealWhenDone { NSWorkspace.shared.activateFileViewerSelecting(outputs) }
             } catch is CancellationError {
                 if !action.interactive { Island.shared.hide() }
             } catch {

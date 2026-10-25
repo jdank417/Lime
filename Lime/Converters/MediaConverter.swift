@@ -100,7 +100,7 @@ nonisolated enum MediaConverter {
             throw LimeError.failed("This file can't be exported that way")
         }
         configure(session)
-        let out = Output.url(in: directory ?? source.deletingLastPathComponent(), base: base ?? Output.baseName(of: source),
+        let out = Output.url(in: directory ?? Output.directory(for: source), base: base ?? Output.baseName(of: source),
                              ext: ext, suffix: suffix)
         let monitor = Task {
             for await state in session.states(updateInterval: 0.2) {

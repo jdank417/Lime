@@ -51,6 +51,17 @@ Everything happens on your Mac. Files are never uploaded anywhere.
 
 Drag several files at once to convert or process them in one go. A small island at the top of the screen shows progress and has a button to show the result in Finder.
 
+### Settings
+
+Open Lime from the menu bar and choose **Settings** to:
+
+- use <kbd>⌃ Control</kbd> instead of Shift, or <kbd>⌘ Command</kbd> instead of Option,
+- make the wheel smaller or larger, pick clear or frosted glass, and choose its highlight color,
+- save new files next to the original, in Downloads, or in a folder you choose,
+- set the photo quality for JPG, HEIC and AVIF,
+- play a sound or show the result in Finder when a job finishes,
+- open Lime at login, or hide its menu bar icon.
+
 ## Install
 
 1. [Download **Lime.dmg**](https://github.com/jdank417/Lime/releases/latest/download/Lime.dmg).
@@ -59,16 +70,18 @@ Drag several files at once to convert or process them in one go. A small island 
 
 Lime needs **macOS 26 Tahoe** or later.
 
-<details>
-<summary><strong>"Apple could not verify Lime…" when opening it?</strong></summary>
+Releases are signed with a Developer ID and notarized by Apple, so Lime opens without any warning.
 
-Releases that aren't notarized by Apple yet show this the first time. To open Lime anyway:
+<details>
+<summary><strong>Built it yourself and see "Apple could not verify Lime…"?</strong></summary>
+
+DMGs you build without a Developer ID certificate aren't notarized. To open one anyway:
 
 1. Click **Done** on the warning.
 2. Open **System Settings → Privacy & Security**.
 3. Scroll down to the message about Lime and click **Open Anyway**, then confirm.
 
-You only need to do this once. If a release says it is notarized, you won't see the warning at all.
+You only need to do this once.
 </details>
 
 The first time you convert something on your Desktop or in Documents or Downloads, macOS asks whether Lime may access that folder. Lime needs this to save the new file next to the original.
@@ -95,10 +108,10 @@ To build your own DMG, run `scripts/build-dmg.sh`. See [docs/RELEASING.md](docs/
 
 | Folder | What's in it |
 | --- | --- |
-| `Lime/Core` | Drag detection, the list of actions per file type, the job runner |
+| `Lime/Core` | Drag detection, the list of actions per file type, the job runner, settings |
 | `Lime/Converters` | The actual work: images, media, PDF, documents, archives, metadata. All local, using Apple's frameworks and the command-line tools built into macOS |
 | `Lime/Editors` | The tool windows (Edit Photo, Trim, Crop, …) |
-| `Lime/UI` | The glass wheel, the top-of-screen island, colors and shapes |
+| `Lime/UI` | The glass wheel, the top-of-screen island, the main window (Home, Settings, About), colors and shapes |
 | `LimeTests` | Tests that run every converter and tool on generated files |
 
 ## Contributing

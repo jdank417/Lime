@@ -5,6 +5,13 @@
 <h1 align="center">Lime</h1>
 
 <p align="center">
+  <a href="https://github.com/jdank417/Lime/releases/latest"><img src="https://img.shields.io/github/v/release/jdank417/Lime?label=release&color=7cc721" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/macOS-26%20Tahoe%2B-000?logo=apple" alt="macOS 26 Tahoe or later">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/jdank417/Lime?color=blue" alt="MIT license"></a>
+  <a href="https://github.com/jdank417/Lime/actions/workflows/release.yml"><img src="https://github.com/jdank417/Lime/actions/workflows/release.yml/badge.svg" alt="Release build"></a>
+</p>
+
+<p align="center">
   Convert and edit files right from Finder. Hold <kbd>⇧ Shift</kbd> while you drag a file and a glass wheel of formats appears under your pointer.
   <br>
   <a href="https://github.com/jdank417/Lime/releases/latest/download/Lime.dmg"><strong>Download for Mac</strong></a>
@@ -13,6 +20,10 @@
 </p>
 
 ---
+
+## Why Lime
+
+Converting a file on a Mac usually means opening it in Preview, choosing **Export**, picking a format, finding a folder and clicking **Save**. With Lime it takes one drag: hold a key, drop the file on a format, and the new file appears next to the original.
 
 ## How it works
 
@@ -51,6 +62,16 @@ Everything happens on your Mac. Files are never uploaded anywhere.
 
 Drag several files at once to convert or process them in one go. A small island at the top of the screen shows progress and has a button to show the result in Finder.
 
+### Nice touches
+
+- **Nothing gets overwritten.** If `photo.png` already exists, the new file is saved as `photo 2.png`.
+- **Mixed files work too.** Drag an image, a PDF and a song together and the wheel offers ZIP or TAR.GZ.
+- **Remove metadata before sharing.** The Metadata tool (⌥ Option) can strip the location, camera and other details from a photo, video, song or PDF. Drag several photos and the wheel has a one-step **Clean** slice.
+- **Haptic feedback.** On a Force Touch trackpad you feel a light tap as you cross each slice.
+- **Recent files.** The menu bar menu lists your last few results; click one to show it in Finder.
+- **A smaller drag preview.** Finder's big drag preview shrinks to a small thumbnail so it doesn't cover the wheel.
+- Press <kbd>Esc</kbd> to close Lime's window.
+
 ### Settings
 
 Open Lime from the menu bar and choose **Settings** to:
@@ -85,6 +106,43 @@ You only need to do this once.
 </details>
 
 The first time you convert something on your Desktop or in Documents or Downloads, macOS asks whether Lime may access that folder. Lime needs this to save the new file next to the original.
+
+## FAQ
+
+<details>
+<summary><strong>Does Lime upload my files?</strong></summary>
+
+No. All conversions run on your Mac using Apple's frameworks and the command-line tools built into macOS. Lime makes no network calls.
+</details>
+
+<details>
+<summary><strong>Why does macOS ask whether Lime can access my Desktop, Documents or Downloads?</strong></summary>
+
+Lime saves the new file in the same folder as the original, and macOS asks before an app writes to those folders. If you said no by accident, turn Lime back on in **System Settings → Privacy & Security → Files & Folders**.
+</details>
+
+<details>
+<summary><strong>How do I drag a file normally?</strong></summary>
+
+Just don't hold <kbd>⇧ Shift</kbd> or <kbd>⌥ Option</kbd>. The wheel only appears while one of them is held. If it's already open, release over the center to cancel. To turn Lime off for a while, click the lime slice in the menu bar and uncheck **Lime Enabled**.
+</details>
+
+<details>
+<summary><strong>The wheel doesn't appear. What should I check?</strong></summary>
+
+- Lime is running: the lime slice is in the menu bar, or you can open Lime from Applications.
+- **Lime Enabled** is checked in the menu bar menu.
+- You're holding the keys chosen in **Settings**. If you switched to <kbd>⌃ Control</kbd> or <kbd>⌘ Command</kbd>, Shift and Option won't open the wheel.
+- You're dragging a file or folder, not text or a link.
+
+Still stuck? [Open an issue](https://github.com/jdank417/Lime/issues/new/choose) with your macOS version and what you dragged.
+</details>
+
+<details>
+<summary><strong>Does Lime need Accessibility or Input Monitoring permission?</strong></summary>
+
+No. Lime only checks which keys are held and what's being dragged, so it doesn't need either permission.
+</details>
 
 ## Build from source
 
